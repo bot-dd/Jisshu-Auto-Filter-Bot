@@ -120,7 +120,7 @@ User - {}"""
 <blockquote> Powered By @RM_Movie_Flix 🎬</blockquote>
 """
 
-    FILE_CAPTION = """<b><blockquote>@RM_Movie_Flix -{file_name}</blockquote>/n<blockquote>━━━━━━━━━━━━━━━━━━⍟
+    FILE_CAPTION = """<b><blockquote>@RM_Movie_Flix -{file_name}</blockquote>\n<blockquote>━━━━━━━━━━━━━━━━━━⍟
 ⿸ 𝑴𝒂𝒊𝒏 𝑪𝒉𝒂𝒏𝒏𝒆𝒍 : @RM_Movie_Flix
 ⿸ 𝑩𝒂𝒄𝒌𝒖𝒑 𝑪𝒉𝒂𝒏𝒏𝒆𝒍 : @RM_Movi
 ⿸ 𝑴𝒐𝒗𝒊𝒆 𝑹𝒆𝒒𝒖𝒆𝒔𝒕 𝑮𝒓𝒐𝒖𝒑 : @Movies_Rm
