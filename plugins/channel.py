@@ -67,11 +67,34 @@ def is_series(text):
     return bool(re.search(r"(?i)(s\d{1,2}e\d{1,2}|season\s*\d+|episode\s*\d+)", text))
 
 
+def movie_name_format(file_name):
+    filename = re.sub(
+        r"http\S+",
+        "",
+        re.sub(r"@\w+|#\w+", "", file_name)
+        .replace("_", " ")
+        .replace("[", "")
+        .replace("]", "")
+        .replace("(", "")
+        .replace(")", "")
+        .replace("{", "")
+        .replace("}", "")
+        .replace(".", " ")
+        .replace("@", "")
+        .replace(":", "")
+        .replace(";", "")
+        .replace("'", "")
+        .replace("-", "")
+        .replace("!", "")
+    ).strip()
+    return filename
+
+
 async def queue_movie_file(bot, media):
     try:
         original_name = media.file_name or ""
         caption_text = media.caption or original_name
-        formatted_name = await movie_name_format(caption_text)
+        formatted_name = movie_name_format(caption_text)
         file_title = formatted_name.split(" ")[0:6]
         file_title = " ".join(file_title).strip()
 
@@ -145,8 +168,8 @@ async def send_series_update(bot, group_key, files):
         full_caption = UPDATE_CAPTION_SERIES.format(title, season, language, quality_text)
 
         buttons = [
-            [InlineKeyboardButton("📥 Get All Episodes", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
-            [InlineKeyboardButton("🎥 Series Request Group", url="https://t.me/RM_Movie_Flix")]
+            [InlineKeyboardButton("📥 Get All File", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
+            [InlineKeyboardButton("🎥 Movie Request Group", url="https://t.me/RM_Movie_Flix")]
         ]
 
         movie_update_channel = await db.movies_update_channel_id()
