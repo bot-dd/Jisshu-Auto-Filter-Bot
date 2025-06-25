@@ -29,24 +29,20 @@ UPDATE_CAPTION_MOVIE = """<b><blockquote>📫 NEW MOVIE ADDED ✅</blockquote>
 {}
 <blockquote>〽️ Powered by @RM_Movie_Flix</b></blockquote>"""
 
-UPDATE_CAPTION_SERIES = """<b><blockquote>📺 NEW SERIES EPISODES ✅</blockquote>
+UPDATE_CAPTION_SERIES = """<b><blockquote>📺 NEW SERIES ADDED ✅</blockquote>
 
-📌 Title : {}
-🗂️ Season : {}
-🌐 Language : {}
-
-🎞️ Episodes:
+🎬 Title : {}
+📅 Season : {}
+🎧 {}
+<blockquote>📁 Episodes:</blockquote>
 
 {}
-
 <blockquote>〽️ Powered by @RM_Movie_Flix</b></blockquote>"""
 
-EPISODE_CAPTION = "📦 E{:02d}: {}"
 QUALITY_CAPTION = "📦 {} : {}\n"
 
 notified_movies = set()
 movie_files = defaultdict(list)
-series_files = defaultdict(lambda: defaultdict(dict))
 POST_DELAY = 10
 processing_movies = set()
 
@@ -67,6 +63,10 @@ async def media(bot, message):
         await queue_movie_file(bot, media)
 
 
+def is_series(text):
+    return bool(re.search(r"(?i)(s\d{1,2}e\d{1,2}|season\s*\d+|episode\s*\d+)", text))
+
+
 async def queue_movie_file(bot, media):
     try:
         original_name = media.file_name or ""
@@ -78,13 +78,11 @@ async def queue_movie_file(bot, media):
         year_match = re.search(r"\b(19|20)\d{2}\b", caption_text)
         year = year_match.group(0) if year_match else None
 
-        episode_match = re.search(r"(?i)S(\d{1,2})E(\d{1,2})", caption_text)
-        is_series = bool(episode_match)
+        season_match = re.search(r"(?i)s(?:eason)?\s*(\d{1,2})", caption_text)
+        season = season_match.group(1) if season_match else "1"
 
-        season_num = episode_num = None
-        if is_series:
-            season_num = int(episode_match.group(1))
-            episode_num = int(episode_match.group(2))
+        episode_match = re.search(r"(?i)e(?:pisode)?\s*(\d{1,2})", caption_text)
+        episode = episode_match.group(1) if episode_match else None
 
         quality = await get_qualities(caption_text) or "HDRip"
         jisshuquality = await Jisshu_qualities(caption_text, original_name) or "720p"
@@ -96,100 +94,70 @@ async def queue_movie_file(bot, media):
         file_size_str = format_file_size(media.file_size)
         file_id, _ = unpack_new_file_id(media.file_id)
 
-        if is_series:
-            series_title = re.sub(r"S\d{1,2}E\d{1,2}.*", "", file_title).strip()
-            series_files[series_title][season_num][episode_num] = {
-                "file_id": file_id,
-                "file_size": file_size_str,
-                "language": language,
-                "quality": jisshuquality,
-            }
+        group_key = f"{file_title}_S{season}"
+
+        movie_files[group_key].append({
+            "quality": quality,
+            "jisshuquality": jisshuquality,
+            "file_id": file_id,
+            "file_size": file_size_str,
+            "caption": caption_text,
+            "language": language,
+            "year": year,
+            "season": season,
+            "episode": episode,
+            "title": file_title,
+        })
+
+        if group_key in processing_movies:
+            return
+        processing_movies.add(group_key)
+
+        try:
             await asyncio.sleep(POST_DELAY)
-            await send_series_update(bot, series_title, season_num)
-        else:
-            if file_title in notified_movies:
-                return
-            movie_files[file_title].append({
-                "quality": quality,
-                "jisshuquality": jisshuquality,
-                "file_id": file_id,
-                "file_size": file_size_str,
-                "caption": caption_text,
-                "language": language,
-                "year": year,
-            })
-
-            if file_title in processing_movies:
-                return
-            processing_movies.add(file_title)
-
-            try:
-                await asyncio.sleep(POST_DELAY)
-                if file_title in movie_files:
-                    await send_movie_update(bot, file_title, movie_files[file_title])
-                    del movie_files[file_title]
-            finally:
-                processing_movies.remove(file_title)
+            if group_key in movie_files:
+                files = movie_files[group_key]
+                if is_series(caption_text):
+                    await send_series_update(bot, group_key, files)
+                else:
+                    await send_movie_update(bot, file_title, files)
+                del movie_files[group_key]
+        finally:
+            processing_movies.remove(group_key)
 
     except Exception as e:
         print(f"Error in queue_movie_file: {e}")
         await bot.send_message(LOG_CHANNEL, f"Failed to send update. Error - {e}")
 
 
-async def send_movie_update(bot, file_name, files):
+async def send_series_update(bot, group_key, files):
     try:
-        if file_name in notified_movies:
-            return
-        notified_movies.add(file_name)
+        title = files[0]['title']
+        season = files[0].get("season", "1")
+        language = files[0]["language"]
+        links = []
+        for f in sorted(files, key=lambda x: int(x["episode"] or 0)):
+            ep = f"Ep {f['episode']}" if f['episode'] else "Unknown"
+            links.append(f"📦 {ep}: <a href='https://t.me/{temp.U_NAME}?start=file_0_{f['file_id']}'>{f['file_size']}</a>")
 
-        title = file_name
-        kind = "#Movie"
-        year = files[0].get("year")
+        quality_text = "\n".join(links)
+        poster = await fetch_movie_poster(title, files[0].get("year")) or "https://te.legra.ph/file/88d845b4f8a024a71465d.jpg"
+        full_caption = UPDATE_CAPTION_SERIES.format(title, season, language, quality_text)
 
-        poster = await fetch_movie_poster(title, year)
-        language_set = set()
-
-        for file in files:
-            if file["language"] != "#NotIdea":
-                language_set.update(file["language"].split(", "))
-
-        language = ", ".join(sorted(language_set)) or "#NotIdea"
-
-        quality_groups = defaultdict(list)
-        for file in files:
-            quality_groups[f"#{file['jisshuquality']}"].append(file)
-
-        sorted_qualities = sorted(quality_groups.keys())
-        quality_links = []
-
-        for quality in sorted_qualities:
-            quality_files = quality_groups[quality]
-            file_links = [
-                f"<a href='https://t.me/{temp.U_NAME}?start=file_0_{file['file_id']}'>{file['file_size']}</a>"
-                for file in quality_files
-            ]
-            quality_links.append(QUALITY_CAPTION.format(quality, " | ".join(file_links)))
-
-        quality_text = "\n".join(quality_links)
-        image_url = poster or "https://te.legra.ph/file/88d845b4f8a024a71465d.jpg"
-        full_caption = UPDATE_CAPTION_MOVIE.format(title, language, kind, quality_text)
-
-        search_movie = title.replace(" ", "-")
-        buttons = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📥 Get All Files", url=f"https://t.me/{temp.U_NAME}?start=getfile-{search_movie}")],
-            [InlineKeyboardButton("🎥 Movie Request Group", url="https://t.me/RM_Movi")]
-        ])
+        buttons = [
+            [InlineKeyboardButton("📥 Get All Episodes", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
+            [InlineKeyboardButton("🎥 Series Request Group", url="https://t.me/RM_Movie_Flix")]
+        ]
 
         movie_update_channel = await db.movies_update_channel_id()
-
         await bot.send_photo(
-            chat_id=movie_update_channel or MOVIE_UPDATE_CHANNEL,
-            photo=image_url,
+            chat_id=movie_update_channel if movie_update_channel else MOVIE_UPDATE_CHANNEL,
+            photo=poster,
             caption=full_caption,
             parse_mode=enums.ParseMode.HTML,
-            reply_markup=buttons
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
 
     except Exception as e:
-        print("Movie update error:", e)
-        await bot.send_message(LOG_CHANNEL, f"Movie update failed: {e}")
+        print(f"Series update error: {e}")
+        await bot.send_message(LOG_CHANNEL, f"Failed to send series update. Error - {e}")
