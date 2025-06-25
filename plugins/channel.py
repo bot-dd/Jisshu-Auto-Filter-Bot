@@ -62,39 +62,14 @@ async def media(bot, message):
     if success_sts == "suc" and await db.get_send_movie_update_status(bot_id):
         await queue_movie_file(bot, media)
 
-
 def is_series(text):
     return bool(re.search(r"(?i)(s\d{1,2}e\d{1,2}|season\s*\d+|episode\s*\d+)", text))
-
-
-def movie_name_format(file_name):
-    filename = re.sub(
-        r"http\S+",
-        "",
-        re.sub(r"@\w+|#\w+", "", file_name)
-        .replace("_", " ")
-        .replace("[", "")
-        .replace("]", "")
-        .replace("(", "")
-        .replace(")", "")
-        .replace("{", "")
-        .replace("}", "")
-        .replace(".", " ")
-        .replace("@", "")
-        .replace(":", "")
-        .replace(";", "")
-        .replace("'", "")
-        .replace("-", "")
-        .replace("!", "")
-    ).strip()
-    return filename
-
 
 async def queue_movie_file(bot, media):
     try:
         original_name = media.file_name or ""
         caption_text = media.caption or original_name
-        formatted_name = movie_name_format(caption_text)
+        formatted_name = await movie_name_format(caption_text)
         file_title = formatted_name.split(" ")[0:6]
         file_title = " ".join(file_title).strip()
 
@@ -184,3 +159,54 @@ async def send_series_update(bot, group_key, files):
     except Exception as e:
         print(f"Series update error: {e}")
         await bot.send_message(LOG_CHANNEL, f"Failed to send series update. Error - {e}")
+
+
+async def get_qualities(text):
+    qualities = [
+        "480p", "720p", "720p HEVC", "1080p", "1080p HEVC", "2160p", "HDRip", "WEB-DL", "HDCAM",
+        "HDTS", "CAMRip", "DVDscr", "dvdrip"
+    ]
+    found = [q for q in qualities if q.lower() in text.lower()]
+    return ", ".join(found) if found else "HDRip"
+
+
+async def Jisshu_qualities(text, file_name):
+    qualities = ["480p", "720p", "720p HEVC", "1080p", "1080p HEVC", "2160p"]
+    combined = (text + " " + file_name).lower()
+    for quality in qualities:
+        if quality.lower() in combined:
+            return quality
+    return "720p"
+
+
+async def movie_name_format(file_name):
+    file_name = re.sub(r"http\S+", "", file_name)
+    file_name = re.sub(r"[@#]\w+", "", file_name)
+    file_name = re.sub(r"[\[\](){}:;.'!_\-]", " ", file_name)
+    return re.sub("\s+", " ", file_name).strip()
+
+
+def format_file_size(size_bytes):
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size_bytes < 1024:
+            return f"{size_bytes:.2f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.2f} PB"
+
+
+async def fetch_movie_poster(title: str, year: Optional[int] = None) -> Optional[str]:
+    async with aiohttp.ClientSession() as session:
+        query = title.strip().replace(" ", "+")
+        url = f"https://jisshuapis.vercel.app/api.php?query={query}"
+        try:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as res:
+                if res.status != 200:
+                    return None
+                data = await res.json()
+                for key in ["jisshu-2", "jisshu-3", "jisshu-4"]:
+                    posters = data.get(key)
+                    if posters and isinstance(posters, list):
+                        return posters[0]
+                return None
+        except:
+            return None
