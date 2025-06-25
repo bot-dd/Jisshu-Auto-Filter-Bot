@@ -171,10 +171,8 @@ async def send_movie_update(bot, file_name, files):
         print("Failed to send movie update. Error - ", e)
         await bot.send_message(LOG_CHANNEL, f"Failed to send movie update. Error - {e}")
 
-async def send_series_update(bot, title, season, files):
+async def send_series_update(bot, title, season, year, files):
     try:
-        poster = await fetch_movie_poster(title, files[0].get("year")) or "https://te.legra.ph/file/88d845b4f8a024a71465d.jpg"
-
         languages = set()
         for file in files:
             if file["language"] != "Not Idea":
@@ -184,23 +182,24 @@ async def send_series_update(bot, title, season, files):
         links = []
         for f in sorted(files, key=lambda x: int(x["episode"] or 0)):
             ep = f"Ep {f['episode']}" if f['episode'] else "Unknown"
-            links.append(f"🎮 {ep}: <a href='https://t.me/{temp.U_NAME}?start=file_0_{f['file_id']}'>{f['file_size']}</a>")
+            links.append(f"📺 {ep}: <a href='https://t.me/{temp.U_NAME}?start=file_0_{f['file_id']}'>{f['file_size']}</a>")
 
         quality_text = "\n".join(links)
+        poster = await fetch_movie_poster(title, year) or "https://te.legra.ph/file/88d845b4f8a024a71465d.jpg"
 
         full_caption = f"""<b><blockquote>🎞️ NEW SERIES ADDED ✅</blockquote>
 
-🚧 Title : {title}
-🪄 Season : {season}
-🎷 {language}
+🎬 Title : {title}
+📅 Season : {season}
+🎧 {language}
 <blockquote>📂 Episodes:</blockquote>
 
 {quality_text}
-<blockquote>🔆 Powered by @RM_Movie_Flix</blockquote></b>"""
+<blockquote>〽️ Powered by @RM_Movie_Flix</blockquote></b>"""
 
         buttons = [
-            [InlineKeyboardButton("📥 Get All Episodes", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}" )],
-            [InlineKeyboardButton("🎥 Series Request Group", url="https://t.me/Movies_Rm")]
+            [InlineKeyboardButton("📥 Get All Episodes", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
+            [InlineKeyboardButton("📽️ Series Request Group", url="https://t.me/Movies_Rm")]
         ]
 
         movie_update_channel = await db.movies_update_channel_id()
