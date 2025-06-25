@@ -19,7 +19,7 @@ CAPTION_LANGUAGES = [
     "Assamese", "Urdu",
 ]
 
-UPDATE_CAPTION_MOVIE = """<b><blockquote>📫 NEW MOVIE ADDED ✅</blockquote>
+UPDATE_CAPTION_MOVIE = """<b><blockquote>📬 NEW MOVIE ADDED ✅</blockquote>
 
 🚧 Title : {}
 🎧 {}
@@ -29,7 +29,7 @@ UPDATE_CAPTION_MOVIE = """<b><blockquote>📫 NEW MOVIE ADDED ✅</blockquote>
 {}
 <blockquote>〽️ Powered by @RM_Movie_Flix</b></blockquote>"""
 
-UPDATE_CAPTION_SERIES = """<b><blockquote>🎞️ NEW SERIES ADDED ✅</blockquote>
+UPDATE_CAPTION_SERIES = """<b><blockquote>🎮 NEW SERIES ADDED ✅</blockquote>
 
 🎬 Title : {}
 📅 Season : {}
@@ -45,8 +45,8 @@ notified_movies = set()
 movie_files = defaultdict(list)
 POST_DELAY = 10
 processing_movies = set()
-media_filter = filters.document | filters.video | filters.audio
 
+media_filter = filters.document | filters.video | filters.audio
 
 @Client.on_message(filters.chat(CHANNELS) & media_filter)
 async def media(bot, message):
@@ -62,10 +62,8 @@ async def media(bot, message):
     if success_sts == "suc" and await db.get_send_movie_update_status(bot_id):
         await queue_movie_file(bot, media)
 
-
 def is_series(text):
     return bool(re.search(r"(?i)(s\d{1,2}e\d{1,2}|season\s*\d+|episode\s*\d+)", text))
-
 
 async def queue_movie_file(bot, media):
     try:
@@ -92,6 +90,7 @@ async def queue_movie_file(bot, media):
 
         file_size_str = format_file_size(media.file_size)
         file_id, _ = unpack_new_file_id(media.file_id)
+
         group_key = f"{file_title}_S{season}"
 
         movie_files[group_key].append({
@@ -127,7 +126,6 @@ async def queue_movie_file(bot, media):
         print(f"Error in queue_movie_file: {e}")
         await bot.send_message(LOG_CHANNEL, f"Failed to send update. Error - {e}")
 
-
 async def send_movie_update(bot, file_title, files):
     try:
         if file_title in notified_movies:
@@ -137,10 +135,9 @@ async def send_movie_update(bot, file_title, files):
         imdb_data = await get_imdb(file_title)
         title = imdb_data.get("title", file_title)
         kind = imdb_data.get("kind", "Movie")
-
         poster = await fetch_movie_poster(title, files[0].get("year")) or "https://te.legra.ph/file/88d845b4f8a024a71465d.jpg"
-        language = files[0]["language"]
 
+        language = files[0]["language"]
         quality_groups = defaultdict(list)
         for file in files:
             quality_groups[file["jisshuquality"]].append(file)
@@ -171,16 +168,29 @@ async def send_movie_update(bot, file_title, files):
         print(f"Movie update error: {e}")
         await bot.send_message(LOG_CHANNEL, f"Failed to send movie update. Error - {e}")
 
+async def get_imdb(file_name):
+    try:
+        formatted_name = await movie_name_format(file_name)
+        imdb = await get_poster(formatted_name)
+        if not imdb:
+            return {}
+        return {
+            "title": imdb.get("title", formatted_name),
+            "kind": imdb.get("kind", "Movie"),
+            "year": imdb.get("year"),
+            "url": imdb.get("url"),
+        }
+    except Exception as e:
+        print(f"IMDB fetch error: {e}")
+        return {}
 
 async def send_series_update(bot, group_key, files):
     try:
-        imdb_data = await get_imdb(files[0]["title"])
-        title = imdb_data.get("title", files[0]["title"])
+        title = files[0]['title']
         season = files[0].get("season", "1")
         language = files[0]["language"]
-
         links = []
-        for f in sorted(files, key=lambda x: int(f["episode"] or 0)):
+        for f in sorted(files, key=lambda x: int(x["episode"] or 0)):
             ep = f"Ep {f['episode']}" if f['episode'] else "Unknown"
             links.append(f"📦 {ep}: <a href='https://t.me/{temp.U_NAME}?start=file_0_{f['file_id']}'>{f['file_size']}</a>")
 
@@ -206,45 +216,21 @@ async def send_series_update(bot, group_key, files):
         print(f"Series update error: {e}")
         await bot.send_message(LOG_CHANNEL, f"Failed to send series update. Error - {e}")
 
-
-async def get_qualities(text):
-    qualities = ["480p", "720p", "720p HEVC", "1080p", "1080p HEVC", "2160p", "HDRip", "WEB-DL"]
-    return ", ".join([q for q in qualities if q.lower() in text.lower()])
-
-
-async def Jisshu_qualities(text, file_name):
-    qualities = ["480p", "720p", "720p HEVC", "1080p", "1080p HEVC", "2160p"]
-    combined_text = (text.lower() + " " + file_name.lower()).strip()
-    if "hevc" in combined_text:
-        for quality in qualities:
-            if "hevc" in quality.lower() and quality.split()[0].lower() in combined_text:
-                return quality
-    for quality in qualities:
-        if "hevc" not in quality.lower() and quality.lower() in combined_text:
-            return quality
-    return "720p"
-
-
 async def movie_name_format(file_name):
-    filename = re.sub(
-        r"http\S+", "",
-        re.sub(r"@\w+|#\w+", "", file_name)
-        .replace("_", " ").replace("[", "").replace("]", "")
-        .replace("(", "").replace(")", "").replace("{", "")
-        .replace("}", "").replace(".", " ").replace("@", "")
-        .replace(":", "").replace(";", "").replace("'", "")
-        .replace("-", " ").replace("!", "")
-    ).strip()
-
-    filters = [
-        "1080p", "720p", "480p", "2160p", "bluray", "hdrip", "web-dl", "webrip",
-        "dvdrip", "hevc", "x264", "x265", "10bit", "8bit", "aac", "mp3",
-        "hindi", "english", "dual audio", "esub", "ddp5", "atmos", "hq", "hd"
-    ]
-    words = filename.split()
-    result_words = [w for w in words if w.lower() not in filters]
-    return " ".join(result_words[:6]).strip()
-
+    filename = re.sub(r"http\S+", "", re.sub(r"@\w+|#\w+", "", file_name)
+                      .replace("_", " ").replace("[", "").replace("]", "")
+                      .replace("(", "").replace(")", "").replace("{", "")
+                      .replace("}", "").replace(".", " ").replace("@", "")
+                      .replace(":", "").replace(";", "").replace("'", "")
+                      .replace("-", " ").replace("!", ""))
+    filters = ["1080p", "720p", "480p", "2160p", "bluray", "hdrip", "webdl", "webrip", "dvdrip", "hevc", "x264", "x265", "10bit", "8bit", "aac", "mp3", "hindi", "english", "dual", "audio", "esub", "dubbed"]
+    words = filename.lower().split()
+    result = []
+    for word in words:
+        if word in filters:
+            break
+        result.append(word.capitalize())
+    return " ".join(result).strip()
 
 async def fetch_movie_poster(title: str, year: Optional[int] = None) -> Optional[str]:
     async with aiohttp.ClientSession() as session:
@@ -265,27 +251,25 @@ async def fetch_movie_poster(title: str, year: Optional[int] = None) -> Optional
             print(f"Poster fetch error: {e}")
             return None
 
-
-async def get_imdb(file_name):
-    try:
-        formatted_name = await movie_name_format(file_name)
-        imdb = await get_poster(formatted_name)
-        if not imdb:
-            return {}
-        return {
-            "title": imdb.get("title", formatted_name),
-            "kind": imdb.get("kind", "Movie"),
-            "year": imdb.get("year"),
-            "url": imdb.get("url"),
-        }
-    except Exception as e:
-        print(f"IMDB fetch error: {e}")
-        return {}
-
-
 def format_file_size(size_bytes):
     for unit in ["B", "KB", "MB", "GB", "TB"]:
         if size_bytes < 1024:
             return f"{size_bytes:.2f} {unit}"
         size_bytes /= 1024
     return f"{size_bytes:.2f} PB"
+
+async def get_qualities(text):
+    qualities = ["480p", "720p", "720p HEVC", "1080p", "1080p HEVC", "2160p", "HDRip", "WEB-DL"]
+    return ", ".join([q for q in qualities if q.lower() in text.lower()])
+
+async def Jisshu_qualities(text, file_name):
+    qualities = ["480p", "720p", "720p HEVC", "1080p", "1080p HEVC", "2160p"]
+    combined_text = (text.lower() + " " + file_name.lower()).strip()
+    if "hevc" in combined_text:
+        for quality in qualities:
+            if "hevc" in quality.lower() and quality.split()[0].lower() in combined_text:
+                return quality
+    for quality in qualities:
+        if "hevc" not in quality.lower() and quality.lower() in combined_text:
+            return quality
+    return "720p"
