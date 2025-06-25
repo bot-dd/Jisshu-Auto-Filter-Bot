@@ -20,7 +20,7 @@ CAPTION_LANGUAGES = [
     "Assamese", "Urdu",
 ]
 
-QUALITY_CAPTION = "\ud83d\udce6 {} : {}\n"
+QUALITY_CAPTION = "📦  {} : {}\n"
 
 notified_movies = set()
 movie_files = defaultdict(list)
@@ -143,19 +143,19 @@ async def send_movie_update(bot, file_name, files):
 
         quality_text = "\n".join(quality_links)
 
-        full_caption = f"""<b><blockquote>\ud83d\udcec NEW MOVIE ADDED \u2705</blockquote>
+        full_caption = f"""<b><blockquote>📪 NEW MOVIE ADDED ✅</blockquote>
 
-\ud83d\udea7 Title : {title}
-\ud83c\udfa7 {language}
-\ud83d\udd16 {kind}
-<blockquote>\ud83d\ude80 Telegram Files \u2728</blockquote>
+🚧 Title : {title}
+🎧 {language}
+🔖 {kind}
+<blockquote>🚀 Telegram Files ✨</blockquote>
 
 {quality_text}
-<blockquote>\u303d\ufe0f Powered by @RM_Movie_Flix</blockquote></b>"""
+<blockquote>🔆 Powered by @RM_Movie_Flix</blockquote></b>"""
 
         buttons = [
-            [InlineKeyboardButton("\ud83d\udce5 Get All Files", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
-            [InlineKeyboardButton("\ud83c\udfa5 Movie Request Group", url="https://t.me/Movies_RM")]
+            [InlineKeyboardButton("📥 Get All Files", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
+            [InlineKeyboardButton("📽️ Movie Request Group", url="https://t.me/Movies_RM")]
         ]
 
         movie_update_channel = await db.movies_update_channel_id()
@@ -185,24 +185,24 @@ async def send_series_update(bot, group_key, files):
         links = []
         for f in sorted(files, key=lambda x: int(x["episode"] or 0)):
             ep = f"Ep {f['episode']}" if f['episode'] else "Unknown"
-            links.append(f"\ud83d\udce6 {ep}: <a href='https://t.me/{temp.U_NAME}?start=file_0_{f['file_id']}'>{f['file_size']}</a>")
+            links.append(f"🔗 {ep}: <a href='https://t.me/{temp.U_NAME}?start=file_0_{f['file_id']}'>{f['file_size']}</a>")
 
         quality_text = "\n".join(links)
         poster = await fetch_movie_poster(title, files[0].get("year")) or "https://te.legra.ph/file/88d845b4f8a024a71465d.jpg"
 
-        full_caption = f"""<b><blockquote>\ud83c\udfae NEW SERIES ADDED \u2705</blockquote>
+        full_caption = f"""<b><blockquote>🎞️ NEW SERIES ADDED ✅</blockquote>
 
-\ud83c\udfac Title : {title}
-\ud83d\udcc5 Season : {season}
-\ud83c\udfa7 {language}
-<blockquote>\ud83d\udcc1 Episodes:</blockquote>
+🚧 Title : {title}
+🪄 Season : {season}
+🎧 {language}
+<blockquote>📂 Episodes:</blockquote>
 
 {quality_text}
-<blockquote>\u303d\ufe0f Powered by @RM_Movie_Flix</blockquote></b>"""
+<blockquote>🔆 Powered by @RM_Movie_Flix</blockquote></b>"""
 
         buttons = [
-            [InlineKeyboardButton("\ud83d\udce5 Get All Episodes", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
-            [InlineKeyboardButton("\ud83c\udfa5 Series Request Group", url="https://t.me/Movies_Rm")]
+            [InlineKeyboardButton("📥 Get All Episodes", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
+            [InlineKeyboardButton("📽️ Series Request Group", url="https://t.me/Movies_Rm")]
         ]
 
         movie_update_channel = await db.movies_update_channel_id()
