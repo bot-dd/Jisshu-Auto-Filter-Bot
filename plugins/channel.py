@@ -69,9 +69,8 @@ async def queue_movie_file(bot, media):
     try:
         original_name = media.file_name or ""
         caption_text = media.caption or original_name
-        formatted_name = await movie_name_format(caption_text)
-        file_title = formatted_name.split(" ")[0:6]
-        file_title = " ".join(file_title).strip()
+        formatted_name = await movie_name_format(original_name)
+        file_title = formatted_name.strip()
 
         year_match = re.search(r"\b(19|20)\d{2}\b", caption_text)
         year = year_match.group(0) if year_match else None
@@ -133,7 +132,7 @@ async def send_series_update(bot, group_key, files):
         season = files[0].get("season", "1")
         language = files[0]["language"]
         links = []
-        for f in sorted(files, key=lambda x: int(x["episode"] or 0)):
+        for f in sorted(files, key=lambda x: int(f["episode"] or 0)):
             ep = f"Ep {f['episode']}" if f['episode'] else "Unknown"
             links.append(f"📦 {ep}: <a href='https://t.me/{temp.U_NAME}?start=file_0_{f['file_id']}'>{f['file_size']}</a>")
 
@@ -164,9 +163,9 @@ async def send_movie_update(bot, file_title, files):
         if file_title in notified_movies:
             return
         notified_movies.add(file_title)
-        imdb_data = await get_imdb(file_title)
-        title = imdb_data.get("title", file_title)
-        kind = imdb_data.get("kind", "Movie")
+
+        title = file_title  # IMDb override removed, only file name used
+        kind = "Movie"
         poster = await fetch_movie_poster(title, files[0].get("year")) or "https://te.legra.ph/file/88d845b4f8a024a71465d.jpg"
 
         language = files[0]["language"]
@@ -224,9 +223,17 @@ async def movie_name_format(file_name):
         .replace("(", "").replace(")", "").replace("{", "")
         .replace("}", "").replace(".", " ").replace("@", "")
         .replace(":", "").replace(";", "").replace("'", "")
-        .replace("-", "").replace("!", "")
+        .replace("-", " ").replace("!", "")
     ).strip()
-    return filename
+
+    filters = [
+        "1080p", "720p", "480p", "2160p", "bluray", "hdrip", "web-dl", "webrip",
+        "dvdrip", "hevc", "x264", "x265", "10bit", "8bit", "aac", "mp3",
+        "hindi", "english", "dual audio", "esub", "ddp5", "atmos", "hq", "hd"
+    ]
+    words = filename.split()
+    result_words = [w for w in words if w.lower() not in filters]
+    return " ".join(result_words[:6]).strip()
 
 async def fetch_movie_poster(title: str, year: Optional[int] = None) -> Optional[str]:
     async with aiohttp.ClientSession() as session:
@@ -246,22 +253,6 @@ async def fetch_movie_poster(title: str, year: Optional[int] = None) -> Optional
         except Exception as e:
             print(f"Poster fetch error: {e}")
             return None
-
-async def get_imdb(file_name):
-    try:
-        formatted_name = await movie_name_format(file_name)
-        imdb = await get_poster(formatted_name)
-        if not imdb:
-            return {}
-        return {
-            "title": imdb.get("title", formatted_name),
-            "kind": imdb.get("kind", "Movie"),
-            "year": imdb.get("year"),
-            "url": imdb.get("url"),
-        }
-    except Exception as e:
-        print(f"IMDB fetch error: {e}")
-        return {}
 
 def format_file_size(size_bytes):
     for unit in ["B", "KB", "MB", "GB", "TB"]:
