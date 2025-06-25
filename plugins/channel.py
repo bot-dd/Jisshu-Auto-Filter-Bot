@@ -9,6 +9,7 @@ from database.users_chats_db import db
 from database.ia_filterdb import save_file, unpack_new_file_id
 import aiohttp
 from typing import Optional
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from collections import defaultdict
 
 CAPTION_LANGUAGES = [
