@@ -143,7 +143,7 @@ async def send_series_update(bot, group_key, files):
         full_caption = UPDATE_CAPTION_SERIES.format(title, season, language, quality_text)
 
         buttons = [
-            [InlineKeyboardButton("📥 Get All File", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
+            [InlineKeyboardButton("📥 Get All Files", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
             [InlineKeyboardButton("🎥 Movie Request Group", url="https://t.me/RM_Movie_Flix")]
         ]
 
