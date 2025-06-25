@@ -29,7 +29,7 @@ UPDATE_CAPTION_MOVIE = """<b><blockquote>📫 NEW MOVIE ADDED ✅</blockquote>
 {}
 <blockquote>〽️ Powered by @RM_Movie_Flix</b></blockquote>"""
 
-UPDATE_CAPTION_SERIES = """<b><blockquote>📺 NEW SERIES ADDED ✅</blockquote>
+UPDATE_CAPTION_SERIES = """<b><blockquote>🎞️ NEW SERIES ADDED ✅</blockquote>
 
 🎬 Title : {}
 📅 Season : {}
@@ -127,7 +127,6 @@ async def queue_movie_file(bot, media):
         print(f"Error in queue_movie_file: {e}")
         await bot.send_message(LOG_CHANNEL, f"Failed to send update. Error - {e}")
 
-
 async def send_series_update(bot, group_key, files):
     try:
         title = files[0]['title']
@@ -143,8 +142,8 @@ async def send_series_update(bot, group_key, files):
         full_caption = UPDATE_CAPTION_SERIES.format(title, season, language, quality_text)
 
         buttons = [
-            [InlineKeyboardButton("📥 Get All Files", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
-            [InlineKeyboardButton("🎥 Movie Request Group", url="https://t.me/RM_Movie_Flix")]
+            [InlineKeyboardButton("📥 Get All Episodes", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
+            [InlineKeyboardButton("🎥 Series Request Group", url="https://t.me/Movies_Rm")]
         ]
 
         movie_update_channel = await db.movies_update_channel_id()
@@ -160,39 +159,74 @@ async def send_series_update(bot, group_key, files):
         print(f"Series update error: {e}")
         await bot.send_message(LOG_CHANNEL, f"Failed to send series update. Error - {e}")
 
+async def send_movie_update(bot, file_title, files):
+    try:
+        if file_title in notified_movies:
+            return
+        notified_movies.add(file_title)
+        imdb_data = await get_imdb(file_title)
+        title = imdb_data.get("title", file_title)
+        kind = imdb_data.get("kind", "Movie")
+        poster = await fetch_movie_poster(title, files[0].get("year")) or "https://te.legra.ph/file/88d845b4f8a024a71465d.jpg"
+
+        language = files[0]["language"]
+        quality_groups = defaultdict(list)
+        for file in files:
+            quality_groups[file["jisshuquality"]].append(file)
+
+        quality_links = []
+        for quality, items in quality_groups.items():
+            links = [f"<a href='https://t.me/{temp.U_NAME}?start=file_0_{f['file_id']}'>{f['file_size']}</a>" for f in items]
+            quality_links.append(QUALITY_CAPTION.format(quality, " | ".join(links)))
+
+        quality_text = "\n".join(quality_links)
+        full_caption = UPDATE_CAPTION_MOVIE.format(title, language, kind, quality_text)
+
+        buttons = [
+            [InlineKeyboardButton("📥 Get All Files", url=f"https://t.me/{temp.U_NAME}?start=getfile-{title.replace(' ', '-')}")],
+            [InlineKeyboardButton("🎥 Movie Request Group", url="https://t.me/Movies_RM")]
+        ]
+
+        movie_update_channel = await db.movies_update_channel_id()
+        await bot.send_photo(
+            chat_id=movie_update_channel if movie_update_channel else MOVIE_UPDATE_CHANNEL,
+            photo=poster,
+            caption=full_caption,
+            parse_mode=enums.ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+
+    except Exception as e:
+        print(f"Movie update error: {e}")
+        await bot.send_message(LOG_CHANNEL, f"Failed to send movie update. Error - {e}")
 
 async def get_qualities(text):
-    qualities = [
-        "480p", "720p", "720p HEVC", "1080p", "1080p HEVC", "2160p", "HDRip", "WEB-DL", "HDCAM",
-        "HDTS", "CAMRip", "DVDscr", "dvdrip"
-    ]
-    found = [q for q in qualities if q.lower() in text.lower()]
-    return ", ".join(found) if found else "HDRip"
-
+    qualities = ["480p", "720p", "720p HEVC", "1080p", "1080p HEVC", "2160p", "HDRip", "WEB-DL"]
+    return ", ".join([q for q in qualities if q.lower() in text.lower()])
 
 async def Jisshu_qualities(text, file_name):
     qualities = ["480p", "720p", "720p HEVC", "1080p", "1080p HEVC", "2160p"]
-    combined = (text + " " + file_name).lower()
+    combined_text = (text.lower() + " " + file_name.lower()).strip()
+    if "hevc" in combined_text:
+        for quality in qualities:
+            if "hevc" in quality.lower() and quality.split()[0].lower() in combined_text:
+                return quality
     for quality in qualities:
-        if quality.lower() in combined:
+        if "hevc" not in quality.lower() and quality.lower() in combined_text:
             return quality
     return "720p"
 
-
 async def movie_name_format(file_name):
-    file_name = re.sub(r"http\S+", "", file_name)
-    file_name = re.sub(r"[@#]\w+", "", file_name)
-    file_name = re.sub(r"[\[\](){}:;.'!_\-]", " ", file_name)
-    return re.sub("\s+", " ", file_name).strip()
-
-
-def format_file_size(size_bytes):
-    for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size_bytes < 1024:
-            return f"{size_bytes:.2f} {unit}"
-        size_bytes /= 1024
-    return f"{size_bytes:.2f} PB"
-
+    filename = re.sub(
+        r"http\S+", "",
+        re.sub(r"@\w+|#\w+", "", file_name)
+        .replace("_", " ").replace("[", "").replace("]", "")
+        .replace("(", "").replace(")", "").replace("{", "")
+        .replace("}", "").replace(".", " ").replace("@", "")
+        .replace(":", "").replace(";", "").replace("'", "")
+        .replace("-", "").replace("!", "")
+    ).strip()
+    return filename
 
 async def fetch_movie_poster(title: str, year: Optional[int] = None) -> Optional[str]:
     async with aiohttp.ClientSession() as session:
@@ -201,12 +235,37 @@ async def fetch_movie_poster(title: str, year: Optional[int] = None) -> Optional
         try:
             async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as res:
                 if res.status != 200:
+                    print(f"API Error: HTTP {res.status}")
                     return None
                 data = await res.json()
                 for key in ["jisshu-2", "jisshu-3", "jisshu-4"]:
                     posters = data.get(key)
-                    if posters and isinstance(posters, list):
+                    if posters and isinstance(posters, list) and posters:
                         return posters[0]
                 return None
-        except:
+        except Exception as e:
+            print(f"Poster fetch error: {e}")
             return None
+
+async def get_imdb(file_name):
+    try:
+        formatted_name = await movie_name_format(file_name)
+        imdb = await get_poster(formatted_name)
+        if not imdb:
+            return {}
+        return {
+            "title": imdb.get("title", formatted_name),
+            "kind": imdb.get("kind", "Movie"),
+            "year": imdb.get("year"),
+            "url": imdb.get("url"),
+        }
+    except Exception as e:
+        print(f"IMDB fetch error: {e}")
+        return {}
+
+def format_file_size(size_bytes):
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size_bytes < 1024:
+            return f"{size_bytes:.2f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.2f} PB"
